@@ -7,21 +7,33 @@ def main(content_id, source_name, season_number, episode_number):
     image_path = s3_manager.upload_wordcloud(wordcloud,content_id,source_name,season_number,episode_number)
     image_path = '/'+image_path
 
-    result = get_season_detail(content_id, season_number)
-    if result is None:
-        insert_season_detail(content_id, season_number)
-        insert_episode_detail(content_id, season_number, episode_number)
-        if season_number == 1:
+    if season_number ==0:
+        result = update_content_statistics(content_id, image_path)
+        if result == 0:
             move_content_detail_from_pending_to_deploy(content_id)
             move_collecting_info_from_pending_to_deploy(content_id)
-        update_season_count_in_content_detail(content_id)
+            update_content_statistics(content_id, image_path)
     else:
-        if get_episode_detail(content_id, season_number, episode_number) is None:
-            insert_episode_detail(content_id, season_number, episode_number)
-            update_episode_count_in_season(content_id,season_number)
+        result = get_season_detail(content_id, season_number)
+        if result is None:
+            insert_season_detail(content_id, season_number)
+            
+            isNotDeployedYet = True if get_pending_collecting_detail(content_id) is not None else False
+            
+            if isNotDeployedYet:
+                move_content_detail_from_pending_to_deploy(content_id)
+                move_collecting_info_from_pending_to_deploy(content_id)
+            update_season_count_in_content_detail(content_id)
 
+        if episode_number == 0:
+            update_season_statistics(content_id, season_number, image_path)
 
-    update_episode_statistics(content_id, season_number,episode_number,image_path)
+        else:
+            if get_episode_detail(content_id, season_number, episode_number) is None:
+                insert_episode_detail(content_id, season_number, episode_number)
+                update_episode_count_in_season(content_id,season_number)
+
+            update_episode_statistics(content_id, season_number,episode_number,image_path)
 
 
 
@@ -39,10 +51,10 @@ if __name__ == "__main__":
 
 else:
     ## TODO lambda 배포시 src.fileManager로 변경
-    from .fileManager.s3_manager import S3Manager
-    from .wordcloudGenerator.wordcloud_generator import WordcloudGenerator
+    from src.fileManager.s3_manager import S3Manager
+    from src.wordcloudGenerator.wordcloud_generator import WordcloudGenerator
 
-    from .dao.content_detail_dao import *
-    from .dao.season_dao import *
-    from .dao.episode_dao import *
-    from .dao.collecting_info_dao import *
+    from src.dao.content_detail_dao import *
+    from src.dao.season_dao import *
+    from src.dao.episode_dao import *
+    from src.dao.collecting_info_dao import *
